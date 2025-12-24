@@ -75,17 +75,26 @@ function GamePageContent() {
 
   const initializeSocket = async () => {
     // Utiliser une URL de serveur Socket.IO séparé en production
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
+    let socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
+    
+    // S'assurer que l'URL a le bon protocole
+    if (socketUrl && !socketUrl.startsWith('http://') && !socketUrl.startsWith('https://')) {
+      socketUrl = 'https://' + socketUrl;
+    }
     
     console.log('🔌 Connexion au serveur Socket.IO:', socketUrl);
     
     socket = io(socketUrl, {
       transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5
     });
 
     socket.on('connect', () => {
-      console.log('Connecté au serveur Socket.IO');
+      console.log('✅ Connecté au serveur Socket.IO');
       setMyPlayerId(socket!.id || "");
+      setConnectionError(""); // Clear error on successful connection
 
       if (action === 'create') {
         socket!.emit('createRoom', { pseudo: pseudo! }, (response) => {
@@ -210,8 +219,22 @@ function GamePageContent() {
     });
 
     socket.on('error', (data) => {
+      console.error('❌ Erreur Socket.IO:', data);
       setStatusMessage(data.message);
       setStatusClass("error");
+    });
+
+    socket.on('connect_error', (error) => {
+      console.error('❌ Erreur de connexion:', error.message);
+      setConnectionError(`Impossible de se connecter au serveur: ${error.message}`);
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.log('🔌 Déconnecté:', reason);
+      if (reason === 'io server disconnect' && socket) {
+        // Le serveur a forcé la déconnexion, on reconnecte
+        socket.connect();
+      }
     });
   };
 
