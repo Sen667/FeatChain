@@ -156,6 +156,7 @@ function GamePageContent() {
     });
 
     socket.on('gameStarted', (newGameState) => {
+      console.log('🎮 gameStarted event reçu:', newGameState);
       setGameState(newGameState);
       setWaitingForPlayers(false);
       setStatusMessage("La partie commence !");
@@ -512,6 +513,16 @@ function GamePageContent() {
   // Salle d'attente multijoueur
   if (isMultiplayer && waitingForPlayers) {
     const isCreator = gameState?.players[0]?.id === myPlayerId;
+    
+    // Debug: afficher l'état actuel
+    console.log('🐛 État salle attente:', {
+      waitingForPlayers,
+      gameStarted: gameState?.gameStarted,
+      playersCount: gameState?.players.length,
+      isCreator,
+      myPlayerId,
+      creatorId: gameState?.players[0]?.id
+    });
     
     return (
       <main className="relative min-h-screen w-full overflow-hidden bg-black text-white">
