@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, KeyboardEvent, useEffect } from "react";
+import { useState, useRef, KeyboardEvent, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -9,7 +9,7 @@ import type { GameState, Player, ServerToClientEvents, ClientToServerEvents } fr
 
 let socket: Socket<ServerToClientEvents, ClientToServerEvents> | null = null;
 
-export default function GamePage() {
+function GamePageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   
@@ -736,5 +736,20 @@ export default function GamePage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function GamePage() {
+  return (
+    <Suspense fallback={
+      <main className="relative min-h-screen w-full overflow-hidden bg-black text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-green-500 mx-auto mb-4"></div>
+          <p className="text-xl">Chargement...</p>
+        </div>
+      </main>
+    }>
+      <GamePageContent />
+    </Suspense>
   );
 }

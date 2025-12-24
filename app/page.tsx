@@ -1,14 +1,11 @@
 "use client";
 
 import Image from "next/image";
-<<<<<<< Updated upstream
 import Link from "next/link";
-=======
 import Threads from "./components/Threads";
 import { useEffect, useMemo, useState } from "react";
 
 type Lang = "fr" | "en";
->>>>>>> Stashed changes
 
 export default function Page() {
   const [lang, setLang] = useState<Lang>("fr");
@@ -23,9 +20,9 @@ export default function Page() {
     () => ({
       fr: {
         tagline:
-          "Une chaîne née des collaborations musicales. Un seul lien brisé, et tout s’arrête.",
-        play: "Jouer",
-        invite: "Inviter des amis",
+          "Une chaîne née des collaborations musicales. Un seul lien brisé, et tout s'arrête.",
+        play: "Jouer en ligne",
+        invite: "Mode solo",
         howTo: "Comment jouer",
         rulesSubtitle:
           "Le principe est simple : enchaîne les collaborations musicales sans jamais rompre la chaîne.",
@@ -37,10 +34,10 @@ export default function Page() {
         rule3Title: "Validation",
         rule3Text: "FeatChain vérifie automatiquement la collaboration via Spotify.",
         rule4Title: "Ne brise pas le lien",
-        rule4Text: "Une erreur ou un temps écoulé, et la chaîne s’arrête.",
+        rule4Text: "Une erreur ou un temps écoulé, et la chaîne s'arrête.",
         aboutTitle: "À propos de FeatChain",
         aboutP1:
-          "FeatChain est un jeu de rapidité et de culture musicale : tu relies des artistes uniquement grâce à leurs collaborations. Chaque bonne réponse prolonge la chaîne. Une erreur… et tout s’arrête.",
+          "FeatChain est un jeu de rapidité et de culture musicale : tu relies des artistes uniquement grâce à leurs collaborations. Chaque bonne réponse prolonge la chaîne. Une erreur… et tout s'arrête.",
         aboutP2:
           "Les feats sont vérifiés automatiquement via Spotify pour garder un gameplay fair et instantané.",
         fast: "Rapide",
@@ -62,14 +59,14 @@ export default function Page() {
         privacy: "Politique de confidentialité",
         data: "Données musicales via Spotify",
         footerDesc:
-          "Le jeu de collaboration musicale où chaque feat crée un lien. Une erreur, et la chaîne s’arrête.",
+          "Le jeu de collaboration musicale où chaque feat crée un lien. Une erreur, et la chaîne s'arrête.",
         allRights: "Tous droits réservés.",
       },
       en: {
         tagline:
-          "A chain born from musical collaborations. Break one link, and it’s over.",
-        play: "Play",
-        invite: "Invite friends",
+          "A chain born from musical collaborations. Break one link, and it's over.",
+        play: "Play Online",
+        invite: "Solo Mode",
         howTo: "How to play",
         rulesSubtitle:
           "Simple concept: chain collaborations and never break the link.",
@@ -80,11 +77,11 @@ export default function Page() {
           "You have 30 seconds to name an artist who collaborated with the previous one.",
         rule3Title: "Validation",
         rule3Text: "FeatChain verifies the collaboration via Spotify.",
-        rule4Title: "Don’t break the link",
+        rule4Title: "Don't break the link",
         rule4Text: "One mistake or time runs out — the chain ends.",
         aboutTitle: "About FeatChain",
         aboutP1:
-          "FeatChain is a fast-paced music knowledge game: connect artists only through collaborations. Each correct answer extends the chain. One mistake… and it’s over.",
+          "FeatChain is a fast-paced music knowledge game: connect artists only through collaborations. Each correct answer extends the chain. One mistake… and it's over.",
         aboutP2:
           "Collaborations are checked via Spotify to keep gameplay fair and instant.",
         fast: "Fast",
@@ -130,23 +127,11 @@ export default function Page() {
       {/* Overlay */}
       <div className="pointer-events-none absolute inset-0 bg-black/55" />
 
-<<<<<<< Updated upstream
-      {/* Top-left logo */}
-      <header className="relative z-10 flex items-start justify-start p-6">
-        <Image
-          src="/logomini.png"
-          alt="Logo"
-          width={44}
-          height={44}
-          className="h-11 w-11 select-none"
-          priority
-        />
-=======
       {/* Header */}
       <header className="relative z-10 p-6">
         <div className="relative flex items-center justify-center sm:justify-start">
           {/* Center on mobile, left on desktop */}
-          <Image src="/logo.png" alt="Logo" width={56} height={56} priority />
+          <Image src="/logomini.png" alt="Logo" width={56} height={56} priority />
 
           {/* Language switch (absolute, doesn't affect centering) */}
           <button
@@ -158,7 +143,6 @@ export default function Page() {
             {lang === "fr" ? "EN" : "FR"}
           </button>
         </div>
->>>>>>> Stashed changes
       </header>
 
       {/* Hero */}
@@ -177,48 +161,27 @@ export default function Page() {
           />
 
           <p className="mt-6 text-balance text-base leading-relaxed text-white/85 md:text-lg">
-<<<<<<< Updated upstream
-            Défiez vos amis dans une chaîne infinie de featurings ! 
-            Trouvez les collaborations entre artistes et devenez le champion du Feat Chain ! 🎵
-=======
             {copy.tagline}
->>>>>>> Stashed changes
           </p>
 
           <div className="mt-8 flex w-full flex-col gap-3 sm:flex-row sm:justify-center">
-<<<<<<< Updated upstream
             <Link
               href="/lobby"
-              className="w-full rounded-2xl bg-white px-6 py-3 text-sm font-semibold text-black transition hover:opacity-90 active:scale-[0.99] sm:w-auto text-center"
+              className="w-full cursor-pointer rounded-2xl bg-[#37AA7A] px-7 py-3.5 text-sm font-semibold text-black shadow-[0_0_0_1px_rgba(50,204,140,0.25),0_10px_30px_rgba(0,0,0,0.45)] transition
+              hover:brightness-110 hover:shadow-[0_0_0_1px_rgba(50,204,140,0.45),0_14px_40px_rgba(0,0,0,0.55)]
+              active:translate-y-[1px] active:brightness-95 sm:w-auto text-center"
             >
-              Jouer en ligne
+              {copy.play}
             </Link>
 
             <Link
               href="/game?mode=solo"
-              className="w-full rounded-2xl border border-white/30 bg-white/10 px-6 py-3 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/15 active:scale-[0.99] sm:w-auto text-center"
-            >
-              Mode solo
-            </Link>
-=======
-            <button
-              className="w-full cursor-pointer rounded-2xl bg-[#37AA7A] px-7 py-3.5 text-sm font-semibold text-black shadow-[0_0_0_1px_rgba(50,204,140,0.25),0_10px_30px_rgba(0,0,0,0.45)] transition
-              hover:brightness-110 hover:shadow-[0_0_0_1px_rgba(50,204,140,0.45),0_14px_40px_rgba(0,0,0,0.55)]
-              active:translate-y-[1px] active:brightness-95 sm:w-auto"
-              type="button"
-            >
-              {copy.play}
-            </button>
-
-            <button
               className="w-full cursor-pointer rounded-2xl border border-[#37AA7A]/35 bg-black/35 px-7 py-3.5 text-sm font-semibold text-[#CFFFE2] backdrop-blur transition
               hover:border-[#32CC8C]/65 hover:bg-[#32CC8C]/10
-              active:translate-y-[1px] sm:w-auto"
-              type="button"
+              active:translate-y-[1px] sm:w-auto text-center"
             >
               {copy.invite}
-            </button>
->>>>>>> Stashed changes
+            </Link>
           </div>
         </div>
       </section>
@@ -316,7 +279,7 @@ export default function Page() {
               <div className="mt-7 inline-flex items-center gap-2 rounded-2xl border border-[#32CC8C]/25 bg-[#32CC8C]/10 px-4 py-2">
                 <span className="h-2 w-2 rounded-full bg-[#32CC8C]" />
                 <span className="text-sm font-medium text-[#CFFFE2]">
-                  {lang === "fr" ? "Ne brise pas le lien." : "Don’t break the link."}
+                  {lang === "fr" ? "Ne brise pas le lien." : "Don't break the link."}
                 </span>
               </div>
             </div>
@@ -352,12 +315,12 @@ export default function Page() {
                 </p>
 
                 <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <button
-                    className="rounded-2xl bg-[#32CC8C] px-6 py-3 text-sm font-semibold text-black transition hover:brightness-110 active:translate-y-[1px]"
-                    type="button"
+                  <Link
+                    href="/lobby"
+                    className="rounded-2xl bg-[#32CC8C] px-6 py-3 text-sm font-semibold text-black transition hover:brightness-110 active:translate-y-[1px] text-center"
                   >
                     {copy.start}
-                  </button>
+                  </Link>
                 </div>
               </div>
             </div>
@@ -442,7 +405,7 @@ export default function Page() {
             © {new Date().getFullYear()} FeatChain. {copy.allRights}
           </p>
           <p className="text-xs text-white/40">
-            {lang === "fr" ? "Ne brise pas le lien." : "Don’t break the link."}
+            {lang === "fr" ? "Ne brise pas le lien." : "Don't break the link."}
           </p>
         </div>
       </footer>

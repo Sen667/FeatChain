@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 
-export default function LobbyPage() {
+function LobbyPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [pseudo, setPseudo] = useState("");
@@ -150,5 +150,20 @@ export default function LobbyPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function LobbyPage() {
+  return (
+    <Suspense fallback={
+      <main className="relative min-h-screen w-full overflow-hidden bg-black text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-green-500 mx-auto mb-4"></div>
+          <p className="text-xl">Chargement...</p>
+        </div>
+      </main>
+    }>
+      <LobbyPageContent />
+    </Suspense>
   );
 }
