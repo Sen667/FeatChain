@@ -489,6 +489,12 @@ function GamePageContent() {
   // Salle d'attente multijoueur
   if (isMultiplayer && waitingForPlayers) {
     const isCreator = gameState?.players[0]?.id === myPlayerId;
+    console.log('🔍 Debug Lobby:', { 
+      isCreator, 
+      myPlayerId, 
+      firstPlayerId: gameState?.players[0]?.id,
+      playersCount: gameState?.players.length 
+    });
     
     return (
       <main className="relative min-h-screen w-full overflow-hidden bg-black text-white">
@@ -561,7 +567,8 @@ function GamePageContent() {
               </div>
             </div>
 
-            {isCreator && (
+            {/* Toujours afficher le bouton pour le créateur */}
+            {isCreator ? (
               <button
                 onClick={startMultiplayerGame}
                 disabled={!gameState || gameState.players.length < 2}
@@ -571,13 +578,18 @@ function GamePageContent() {
                   ? "Attendez au moins 2 joueurs..." 
                   : "🎮 Démarrer la partie"}
               </button>
-            )}
-
-            {!isCreator && (
+            ) : (
               <p className="text-center text-gray-400">
                 En attente que l&apos;hôte démarre la partie...
               </p>
             )}
+
+            {/* Debug info (à retirer plus tard) */}
+            <div className="mt-2 p-2 bg-gray-800 rounded text-xs">
+              <p>👤 Vous: {myPlayerId?.substring(0, 8)}...</p>
+              <p>👑 Créateur: {gameState?.players[0]?.id?.substring(0, 8)}...</p>
+              <p>🎯 isCreator: {isCreator ? "OUI" : "NON"}</p>
+            </div>
 
             <button
               onClick={() => router.push('/lobby')}
