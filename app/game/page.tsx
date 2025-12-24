@@ -48,7 +48,7 @@ export default function GamePage() {
     setPlayerEmbed("");
 
     try {
-      const tokenReq = await fetch('/token');
+      const tokenReq = await fetch('/api/token');
       if (!tokenReq.ok) throw new Error("Erreur serveur local");
       const tokenData = await tokenReq.json();
       const token = tokenData.token;
@@ -117,7 +117,7 @@ export default function GamePage() {
 
   return (
     <main className="relative min-h-screen w-full overflow-hidden bg-black text-white">
-      <div className="container">
+      <div className="container ">
         <h1>Feat. <span className="accent">Chain</span></h1>
         
         <div 
