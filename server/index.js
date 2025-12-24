@@ -5,6 +5,7 @@ const express = require('express');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const fetch = require('node-fetch');
 
 const app = express();
 app.use(cors());
@@ -356,7 +357,7 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3001;
 
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Serveur Socket.IO démarré sur le port ${PORT}`);
   console.log(`📡 CORS autorisé pour: ${process.env.CLIENT_URL || "http://localhost:3000"}`);
 });
