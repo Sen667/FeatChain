@@ -120,7 +120,7 @@ io.on('connection', (socket) => {
       usedArtists: ["ninho"],
       history: ["Ninho"],
       currentPlayerIndex: 0,
-      isGameStarted: false,
+      gameStarted: false,
       timeLeft: 30,
       gameOver: false
     };
@@ -143,25 +143,43 @@ io.on('connection', (socket) => {
       return;
     }
 
-    if (gameState.isGameStarted) {
+    // Vérifier si le joueur était déjà dans la partie (reconnexion)
+    const existingPlayer = gameState.players.find(p => p.pseudo === pseudo);
+
+    if (gameState.gameStarted && !existingPlayer) {
       socket.emit('error', { message: 'La partie a déjà commencé' });
       return;
     }
 
-    const player = {
-      id: socket.id,
-      pseudo: pseudo || `Joueur ${gameState.players.length + 1}`,
-      score: 0,
-      lives: 3
-    };
-
-    gameState.players.push(player);
     socket.join(roomCode);
 
-    console.log(`👤 ${pseudo} a rejoint la room ${roomCode}`);
+    if (existingPlayer) {
+      // Reconnexion : mettre à jour l'ID du socket
+      existingPlayer.id = socket.id;
+      console.log(`🔄 ${pseudo} s'est reconnecté à la room ${roomCode}`);
+      
+      // Envoyer l'état actuel au joueur reconnecté
+      socket.emit('gameState', gameState);
+      
+      // Si la partie a déjà commencé, envoyer gameStarted
+      if (gameState.gameStarted) {
+        socket.emit('gameStarted', gameState);
+      }
+    } else {
+      // Nouveau joueur
+      const player = {
+        id: socket.id,
+        pseudo: pseudo || `Joueur ${gameState.players.length + 1}`,
+        score: 0,
+        lives: 3
+      };
 
-    io.to(roomCode).emit('gameState', gameState);
-    io.to(roomCode).emit('playerJoined', { player });
+      gameState.players.push(player);
+      console.log(`👤 ${pseudo} a rejoint la room ${roomCode}`);
+      
+      io.to(roomCode).emit('gameState', gameState);
+      io.to(roomCode).emit('playerJoined', { player });
+    }
   });
 
   // Démarrer la partie
@@ -178,7 +196,7 @@ io.on('connection', (socket) => {
       return;
     }
 
-    gameState.isGameStarted = true;
+    gameState.gameStarted = true;
     gameState.timeLeft = 30;
 
     console.log(`🚀 Partie démarrée dans la room ${roomCode}`);
