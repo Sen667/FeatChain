@@ -74,10 +74,13 @@ function GamePageContent() {
   }, [mode, action, pseudo, roomCodeParam, router]);
 
   const initializeSocket = async () => {
-    await fetch('/api/socket');
+    // Utiliser une URL de serveur Socket.IO séparé en production
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
     
-    socket = io({
-      path: '/api/socket',
+    console.log('🔌 Connexion au serveur Socket.IO:', socketUrl);
+    
+    socket = io(socketUrl, {
+      transports: ['websocket', 'polling'],
     });
 
     socket.on('connect', () => {
