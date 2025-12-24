@@ -2,6 +2,9 @@
 
 import { useState, useRef, KeyboardEvent } from "react";
 
+import Image from "next/image";
+import Link from "next/link";
+
 export default function GamePage() {
   const [currentArtist, setCurrentArtist] = useState("Ninho");
   const [usedArtists, setUsedArtists] = useState<string[]>(["ninho"]);
@@ -11,6 +14,8 @@ export default function GamePage() {
   const [playerEmbed, setPlayerEmbed] = useState("");
   const [history, setHistory] = useState("Chaîne actuelle : Ninho");
   const [isAnimating, setIsAnimating] = useState(false);
+  const [lives, setLives] = useState(3);
+  const [gameOver, setGameOver] = useState(false);
   
   const guessInputRef = useRef<HTMLInputElement>(null);
 
@@ -19,6 +24,8 @@ export default function GamePage() {
   };
 
   const checkFeat = async () => {
+    if (gameOver) return;
+
     const guessValue = guess.trim();
 
     if (!guessValue) return;
@@ -97,9 +104,18 @@ export default function GamePage() {
         }, 300);
 
       } else {
-        // DÉFAITE
-        setStatusMessage(`❌ Aucun feat trouvé entre ${currentArtist} et ${guessValue}.`);
-        setStatusClass("error");
+        // ERREUR - Perte d'une vie
+        const newLives = lives - 1;
+        setLives(newLives);
+        
+        if (newLives <= 0) {
+          setStatusMessage(`💀 Game Over ! Aucun feat trouvé entre ${currentArtist} et ${guessValue}. Vous avez perdu toutes vos vies !`);
+          setStatusClass("error");
+          setGameOver(true);
+        } else {
+          setStatusMessage(`❌ Aucun feat trouvé entre ${currentArtist} et ${guessValue}. Vies restantes : ${newLives}`);
+          setStatusClass("error");
+        }
       }
 
     } catch (error) {
@@ -115,11 +131,44 @@ export default function GamePage() {
     }
   };
 
+  const restartGame = () => {
+    setCurrentArtist("Ninho");
+    setUsedArtists(["ninho"]);
+    setGuess("");
+    setStatusMessage("");
+    setStatusClass("");
+    setPlayerEmbed("");
+    setHistory("Chaîne actuelle : Ninho");
+    setIsAnimating(false);
+    setLives(3);
+    setGameOver(false);
+  };
+
   return (
     <main className="relative min-h-screen w-full overflow-hidden bg-black text-white">
-      <div className="container ">
+
+
+        <Link href="/" className="text-left text-lg pl-4 mt-4">Retour </Link>
+
+      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen gap-2 px-2">
+
         <h1>Feat. <span className="accent">Chain</span></h1>
-        
+
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <Image
+            src="/logo.svg"
+            alt="FeatChain Logo"
+            width={500}
+            height={500}
+            className="opacity-40"
+          />
+        </div>
+
+        {/* Affichage des vies */}
+        <div className="text-2xl font-bold mb-4">
+          ❤️ Vies : {lives}/3
+        </div>
+
         <div 
           id="current-artist-box"
           style={{
@@ -134,6 +183,7 @@ export default function GamePage() {
 
         <input 
           ref={guessInputRef}
+          className="w-full rounded-lg bg-white px-6 py-3 text-sm font-semibold text-black transition hover:opacity-90 active:scale-[0.99] sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
           type="text" 
           id="guess-input" 
           placeholder="Qui a fait un feat avec lui ?" 
@@ -141,9 +191,25 @@ export default function GamePage() {
           value={guess}
           onChange={(e) => setGuess(e.target.value)}
           onKeyPress={handleKeyPress}
+          disabled={gameOver}
         />
         <br />
-        <button onClick={checkFeat}>Valider</button>
+        <button 
+          className="w-full rounded-2xl bg-white px-6 py-3 text-sm font-semibold text-black transition hover:opacity-90 active:scale-[0.99] sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed" 
+          onClick={checkFeat}
+          disabled={gameOver}
+        >
+          Valider
+        </button>
+
+        {gameOver && (
+          <button 
+            className="w-full rounded-2xl bg-green-500 px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90 active:scale-[0.99] sm:w-auto mt-4" 
+            onClick={restartGame}
+          >
+            🔄 Rejouer
+          </button>
+        )}
 
         <div id="status-msg" className={statusClass}>
           {statusMessage}
