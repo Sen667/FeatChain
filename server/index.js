@@ -184,7 +184,7 @@ io.on('connection', (socket) => {
     console.log(`🚀 Partie démarrée dans la room ${roomCode}`);
 
     io.to(roomCode).emit('gameState', gameState);
-    io.to(roomCode).emit('gameStarted');
+    io.to(roomCode).emit('gameStarted', gameState); // Envoyer gameState avec l'événement
     io.to(roomCode).emit('timerStart', { timeLeft: 30 });
   });
 
