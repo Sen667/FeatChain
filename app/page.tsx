@@ -111,7 +111,11 @@ export default function Page() {
   const copy = t[lang];
 
   return (
+  
     <main className="relative min-h-screen w-full bg-black text-white">
+      <head>
+        <meta name="google-site-verification" content="KQ-eHipD3lQ3EJyx_8vFVQZa6vWQ5X0b5_EdCaO1AZc" />
+      </head>
       {/* Background video */}
       <video
         className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-40"
