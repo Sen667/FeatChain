@@ -531,7 +531,7 @@ function GamePageContent() {
         <div className="relative z-10 flex flex-col items-center justify-center min-h-screen gap-6 px-4">
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <Image
-              src="/logo.svg"
+              src="/logo.png"
               alt="FeatChain Logo"
               width={600}
               height={600}
@@ -637,7 +637,7 @@ function GamePageContent() {
 
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <Image
-            src="/logo.svg"
+            src="/logo.png"
             alt="FeatChain Logo"
             width={500}
             height={500}

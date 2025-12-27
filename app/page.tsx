@@ -131,7 +131,7 @@ export default function Page() {
       <header className="relative z-10 p-6">
         <div className="relative flex items-center justify-center sm:justify-start">
           {/* Center on mobile, left on desktop */}
-          <Image src="/logomini.png" alt="Logo" width={56} height={56} priority />
+          <Image src="/logo.png" alt="Logo" width={56} height={56} priority />
 
           {/* Language switch (absolute, doesn't affect centering) */}
           <button

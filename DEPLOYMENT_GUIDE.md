@@ -39,8 +39,8 @@ Dans l'onglet **"Variables"**, ajoutez :
 
 ```
 CLIENT_URL=https://featchain-qfonrcyxp-mathishagnere230-gmailcoms-projects.vercel.app
-SPOTIFY_CLIENT_ID=33be271de0874e1c87c7192910651c3f
-SPOTIFY_CLIENT_SECRET=303c61c157e54f51ab546949a4484b45
+SPOTIFY_CLIENT_ID=
+SPOTIFY_CLIENT_SECRET=
 PORT=3001
 ```
 
