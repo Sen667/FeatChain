@@ -3,6 +3,7 @@ const { createServer } = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const fetch = require('node-fetch');
+const { getRandomRapper } = require('./data/french-rappers');
 require('dotenv').config();
 
 const app = express();
@@ -138,6 +139,7 @@ io.on('connection', (socket) => {
   // Créer une room
   socket.on('createRoom', ({ pseudo }, callback) => {
     const roomCode = generateRoomCode();
+    const startingRapper = getRandomRapper();
     
     const gameState = {
       roomCode: roomCode,  // Utiliser roomCode au lieu de code
@@ -148,9 +150,9 @@ io.on('connection', (socket) => {
         isActive: true,  // Ajouter isActive pour compatibilité
         score: 0
       }],
-      currentArtist: 'Ninho',
-      usedArtists: ['ninho'],
-      history: 'Chaîne actuelle : Ninho',  // Format attendu par le client
+      currentArtist: startingRapper,
+      usedArtists: [startingRapper.toLowerCase()],
+      history: `Chaîne actuelle : ${startingRapper}`,  // Format attendu par le client
       currentPlayerIndex: 0,
       gameStarted: false,
       gameOver: false

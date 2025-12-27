@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { io, Socket } from "socket.io-client";
 import type { GameState, Player, ServerToClientEvents, ClientToServerEvents } from "@/types/game";
+import { getRandomRapper } from "@/data/french-rappers";
 
 let socket: Socket<ServerToClientEvents, ClientToServerEvents> | null = null;
 
@@ -19,14 +20,18 @@ function GamePageContent() {
   const pseudo = searchParams?.get('pseudo');
   const roomCodeParam = searchParams?.get('room');
 
+  // Obtenir un rappeur aléatoire au démarrage
+  const [initialRapper] = useState(() => getRandomRapper());
+
   // États du jeu solo
-  const [currentArtist, setCurrentArtist] = useState("Ninho");
-  const [usedArtists, setUsedArtists] = useState<string[]>(["ninho"]);
+  const [currentArtist, setCurrentArtist] = useState(initialRapper);
+  const [usedArtists, setUsedArtists] = useState<string[]>([initialRapper.toLowerCase()]);
   const [guess, setGuess] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [statusClass, setStatusClass] = useState("");
   const [playerEmbed, setPlayerEmbed] = useState("");
-  const [history, setHistory] = useState("Chaîne actuelle : Ninho");
+  const [spotifyTrackId, setSpotifyTrackId] = useState<string>("");
+  const [history, setHistory] = useState(`Chaîne actuelle : ${initialRapper}`);
   const [isAnimating, setIsAnimating] = useState(false);
   const [lives, setLives] = useState(3);
   const [gameOver, setGameOver] = useState(false);
@@ -190,6 +195,7 @@ function GamePageContent() {
     });
 
     socket.on('artistValidated', (data) => {
+      setSpotifyTrackId(data.trackId);
       setPlayerEmbed(`
         <iframe style="border-radius:12px" 
         src="https://open.spotify.com/embed/track/${data.trackId}?utm_source=generator&autoplay=1" 
@@ -341,11 +347,9 @@ function GamePageContent() {
     if (socket && gameState) {
       setStatusMessage("⏰ Temps écoulé ! Vous perdez une vie.");
       setStatusClass("error");
-      // Envoyer une validation avec une chaîne vide pour déclencher une erreur
-      socket.emit('validateArtist', {
-        roomCode: gameState.roomCode,
-        playerId: myPlayerId,
-        artistGuess: "_timeout_" + Date.now(), // Valeur impossible pour forcer l'erreur
+      // Envoyer un événement timeOut au serveur
+      socket.emit('timeOut', {
+        roomCode: gameState.roomCode
       });
     }
   };
@@ -386,6 +390,7 @@ function GamePageContent() {
     if (cleanGuess === cleanCurrent) {
       setStatusMessage("⚠️ Il ne peut pas feat avec lui-même !");
       setStatusClass("warning");
+      setSpotifyTrackId("");
       setPlayerEmbed("");
       return;
     }
@@ -394,6 +399,7 @@ function GamePageContent() {
     if (usedArtists.includes(cleanGuess)) {
       setStatusMessage(`⚠️ Déjà cité ! "${guessValue}" est déjà sorti.`);
       setStatusClass("warning");
+      setSpotifyTrackId("");
       setPlayerEmbed("");
       return;
     }
@@ -401,6 +407,7 @@ function GamePageContent() {
     // Recherche en cours
     setStatusMessage("Recherche en cours...");
     setStatusClass("");
+    setSpotifyTrackId("");
     setPlayerEmbed("");
 
     try {
@@ -438,6 +445,7 @@ function GamePageContent() {
         setHistory(prev => prev + " > " + newArtist);
 
         // Lecteur Spotify avec Autoplay
+        setSpotifyTrackId(trackId);
         setPlayerEmbed(`
           <iframe style="border-radius:12px" 
           src="https://open.spotify.com/embed/track/${trackId}?utm_source=generator&autoplay=1" 
@@ -491,13 +499,15 @@ function GamePageContent() {
   };
 
   const restartGame = () => {
-    setCurrentArtist("Ninho");
-    setUsedArtists(["ninho"]);
+    const newRapper = getRandomRapper();
+    setCurrentArtist(newRapper);
+    setUsedArtists([newRapper.toLowerCase()]);
     setGuess("");
     setStatusMessage("");
     setStatusClass("");
+    setSpotifyTrackId("");
     setPlayerEmbed("");
-    setHistory("Chaîne actuelle : Ninho");
+    setHistory(`Chaîne actuelle : ${newRapper}`);
     setIsAnimating(false);
     setLives(3);
     setGameOver(false);
@@ -775,11 +785,21 @@ function GamePageContent() {
           {statusMessage}
         </div>
         
-        <div 
-          id="player-container"
-          className="relative z-20"
-          dangerouslySetInnerHTML={{ __html: playerEmbed }}
-        />
+        {spotifyTrackId && (
+          <div id="player-container" className="relative z-20">
+            <iframe 
+              key={spotifyTrackId}
+              style={{ borderRadius: '12px' }}
+              src={`https://open.spotify.com/embed/track/${spotifyTrackId}?utm_source=generator`}
+              width="100%" 
+              height="152" 
+              frameBorder="0" 
+              allowFullScreen
+              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
+              loading="lazy"
+            />
+          </div>
+        )}
 
         <div id="history" className="relative z-20">
           {isMultiplayer && gameState ? gameState.history : history}

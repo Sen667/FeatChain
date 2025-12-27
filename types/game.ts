@@ -50,5 +50,6 @@ export interface ClientToServerEvents {
   joinRoom: (data: { roomCode: string; pseudo: string }, callback: (response: { success: boolean; gameState?: GameState; error?: string }) => void) => void;
   startGame: (roomCode: string) => void;
   validateArtist: (data: { roomCode: string; playerId: string; artistGuess: string }) => void;
+  timeOut: (data: { roomCode: string }) => void;
   leaveRoom: (data: { roomCode: string; playerId: string }) => void;
 }
