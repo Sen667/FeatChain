@@ -3,6 +3,7 @@ const { createServer } = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const fetch = require('node-fetch');
+require('dotenv').config();
 
 const app = express();
 const httpServer = createServer(app);
@@ -71,8 +72,12 @@ async function getSpotifyToken() {
 
 async function checkFeatExists(artist1, artist2) {
   try {
+    console.log(`🎵 Recherche Spotify: "${artist1}" x "${artist2}"`);
     const token = await getSpotifyToken();
+    console.log(`🔑 Token Spotify obtenu: ${token ? 'OK' : 'ERREUR'}`);
+    
     const searchQuery = `artist:${artist1} artist:${artist2}`;
+    console.log(`🔍 Query Spotify: ${searchQuery}`);
     
     const response = await fetch(
       `https://api.spotify.com/v1/search?q=${encodeURIComponent(searchQuery)}&type=track&limit=5`,
@@ -82,14 +87,21 @@ async function checkFeatExists(artist1, artist2) {
     );
 
     const data = await response.json();
+    console.log(`📊 Résultats Spotify: ${data.tracks?.items?.length || 0} tracks trouvés`);
     
     if (data.tracks && data.tracks.items.length > 0) {
       for (const track of data.tracks.items) {
         const artistNames = track.artists.map(a => a.name.toLowerCase());
+        console.log(`🎤 Track "${track.name}" avec: ${artistNames.join(', ')}`);
+        
         const hasArtist1 = artistNames.some(name => name.includes(artist1.toLowerCase()));
         const hasArtist2 = artistNames.some(name => name.includes(artist2.toLowerCase()));
         
+        console.log(`   - Contient "${artist1}": ${hasArtist1}`);
+        console.log(`   - Contient "${artist2}": ${hasArtist2}`);
+        
         if (hasArtist1 && hasArtist2) {
+          console.log(`✅ FEAT TROUVÉ: ${track.name}`);
           return {
             exists: true,
             trackName: track.name,
@@ -100,6 +112,7 @@ async function checkFeatExists(artist1, artist2) {
       }
     }
     
+    console.log(`❌ Aucun feat trouvé`);
     return { exists: false };
   } catch (error) {
     console.error('❌ Erreur Spotify API:', error);
@@ -228,13 +241,23 @@ io.on('connection', (socket) => {
 
     io.to(roomCode).emit('gameStarted', gameState);
     io.to(roomCode).emit('timerStart', { timeLeft: 30 });
+    
+    // Informer tous les joueurs du tour actuel
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+    io.to(roomCode).emit('turnChanged', {
+      currentPlayerId: currentPlayer.id,
+      currentPlayerPseudo: currentPlayer.pseudo
+    });
   });
 
   // Valider une réponse
-  socket.on('validateAnswer', async ({ roomCode, guess }) => {
+  socket.on('validateArtist', async ({ roomCode, playerId, artistGuess }) => {
+    console.log(`🎯 validateArtist reçu: ${artistGuess} de ${playerId} dans ${roomCode}`);
+    
     const gameState = rooms.get(roomCode);
 
     if (!gameState || !gameState.gameStarted) {
+      console.log('❌ Partie introuvable ou non démarrée');
       socket.emit('error', { message: 'Partie introuvable ou non démarrée' });
       return;
     }
@@ -242,11 +265,12 @@ io.on('connection', (socket) => {
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
     
     if (currentPlayer.id !== socket.id) {
+      console.log(`❌ Mauvais tour: ${socket.id} vs ${currentPlayer.id}`);
       socket.emit('error', { message: 'Ce n\'est pas votre tour' });
       return;
     }
 
-    const guessClean = guess.trim().toLowerCase();
+    const guessClean = artistGuess.trim().toLowerCase();
     const currentArtistClean = gameState.currentArtist.toLowerCase();
 
     // Vérifier si l'artiste a déjà été utilisé
@@ -254,7 +278,7 @@ io.on('connection', (socket) => {
       currentPlayer.lives -= 1;
       
       io.to(roomCode).emit('validationError', {
-        message: `❌ ${guess} a déjà été utilisé !`,
+        message: `❌ ${artistGuess} a déjà été utilisé !`,
         livesLost: true,
         remainingLives: currentPlayer.lives,
         playerId: socket.id
@@ -290,20 +314,23 @@ io.on('connection', (socket) => {
     }
 
     // Vérifier le feat avec Spotify
+    console.log(`🔍 Vérification du feat entre "${currentArtistClean}" et "${guessClean}"`);
     const featResult = await checkFeatExists(currentArtistClean, guessClean);
+    console.log(`🎵 Résultat Spotify:`, featResult);
 
     if (featResult.exists) {
       // Bonne réponse
-      gameState.currentArtist = guess;
+      console.log(`✅ Feat trouvé! ${featResult.trackName}`);
+      gameState.currentArtist = artistGuess;
       gameState.usedArtists.push(guessClean);
-      gameState.history += ` → ${guess}`;
+      gameState.history += ` → ${artistGuess}`;
       currentPlayer.score += 1;
 
       // Passer au joueur suivant
       gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
 
       io.to(roomCode).emit('artistValidated', {
-        newArtist: guess,
+        newArtist: artistGuess,
         trackName: featResult.trackName,
         trackId: featResult.trackId,
         history: gameState.history,
@@ -319,10 +346,11 @@ io.on('connection', (socket) => {
 
     } else {
       // Mauvaise réponse
+      console.log(`❌ Aucun feat trouvé entre ${gameState.currentArtist} et ${artistGuess}`);
       currentPlayer.lives -= 1;
       
       io.to(roomCode).emit('validationError', {
-        message: `❌ Aucun feat trouvé entre ${gameState.currentArtist} et ${guess}`,
+        message: `❌ Aucun feat trouvé entre ${gameState.currentArtist} et ${artistGuess}`,
         livesLost: true,
         remainingLives: currentPlayer.lives,
         playerId: socket.id

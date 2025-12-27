@@ -162,8 +162,14 @@ function GamePageContent() {
       setGameState(newGameState);
       setWaitingForPlayers(false);
       setStatusMessage("La partie commence !");
+      
+      // Définir si c'est le tour du joueur actuel (le premier joueur commence)
+      const firstPlayerId = newGameState.players[newGameState.currentPlayerIndex]?.id;
+      const myTurn = firstPlayerId === socket!.id;
+      setIsMyTurn(myTurn);
+      
       // Démarrer le timer pour le premier joueur
-      if (newGameState.players[0].id === socket!.id) {
+      if (myTurn) {
         startTimer();
       }
     });
@@ -248,8 +254,14 @@ function GamePageContent() {
   };
 
   const validateMultiplayer = () => {
-    if (!socket || !gameState || !isMyTurn || !guess.trim()) return;
+    console.log('🎯 validateMultiplayer appelé', { socket: !!socket, gameState: !!gameState, isMyTurn, guess: guess.trim() });
     
+    if (!socket || !gameState || !isMyTurn || !guess.trim()) {
+      console.log('❌ Validation bloquée:', { socket: !!socket, gameState: !!gameState, isMyTurn, hasGuess: !!guess.trim() });
+      return;
+    }
+    
+    console.log('✅ Envoi de validateArtist au serveur');
     socket.emit('validateArtist', {
       roomCode: gameState.roomCode,
       playerId: myPlayerId,
