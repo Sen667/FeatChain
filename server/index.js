@@ -1,6 +1,3 @@
-// Serveur Socket.IO standalone pour le mode multijoueur
-// À déployer sur Railway, Render ou Fly.io
-
 const express = require('express');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
@@ -8,182 +5,210 @@ const cors = require('cors');
 const fetch = require('node-fetch');
 
 const app = express();
-app.use(cors());
-
 const httpServer = createServer(app);
 
+// Configuration CORS
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://featchain.vercel.app',
+  /https:\/\/featchain-.*\.vercel\.app$/,
+  /https:\/\/.*-mathishagnere230-gmailcoms-projects\.vercel\.app$/
+];
+
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true
+}));
+
+// Configuration Socket.IO
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
-    methods: ["GET", "POST"],
+    origin: allowedOrigins,
+    methods: ['GET', 'POST'],
     credentials: true
   },
   transports: ['websocket', 'polling']
 });
 
+// Variables d'environnement
+const PORT = process.env.PORT || 3001;
+const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
+const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
+
 // Stockage des rooms en mémoire
 const rooms = new Map();
 
-// Génère un code de room aléatoire
+// Token Spotify (cache)
+let spotifyToken = null;
+let tokenExpiry = 0;
+
+// ============ FONCTIONS UTILITAIRES ============
+
 function generateRoomCode() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
-// Vérifie si un feat existe via Spotify
+async function getSpotifyToken() {
+  if (spotifyToken && Date.now() < tokenExpiry) {
+    return spotifyToken;
+  }
+
+  const auth = Buffer.from(`${SPOTIFY_CLIENT_ID}:${SPOTIFY_CLIENT_SECRET}`).toString('base64');
+  const response = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Basic ${auth}`,
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: 'grant_type=client_credentials'
+  });
+
+  const data = await response.json();
+  spotifyToken = data.access_token;
+  tokenExpiry = Date.now() + (data.expires_in * 1000) - 60000;
+  return spotifyToken;
+}
+
 async function checkFeatExists(artist1, artist2) {
   try {
-    const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
-    const CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
-
-    if (!CLIENT_ID || !CLIENT_SECRET) {
-      console.error('❌ Credentials Spotify manquants');
-      return { exists: false };
-    }
-
-    // Get Spotify token
-    const authString = Buffer.from(CLIENT_ID + ':' + CLIENT_SECRET).toString('base64');
-    const tokenResponse = await fetch('https://accounts.spotify.com/api/token', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Basic ' + authString,
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      body: new URLSearchParams({
-        grant_type: 'client_credentials'
-      })
-    });
-
-    if (!tokenResponse.ok) {
-      throw new Error('Erreur lors de la récupération du token');
-    }
-
-    const tokenData = await tokenResponse.json();
-    const token = tokenData.access_token;
-
-    // Search for collaboration
-    const query = encodeURIComponent(`artist:${artist1} artist:${artist2}`);
-    const url = `https://api.spotify.com/v1/search?q=${query}&type=track&limit=1`;
-
-    const response = await fetch(url, {
-      headers: { 'Authorization': 'Bearer ' + token }
-    });
+    const token = await getSpotifyToken();
+    const searchQuery = `artist:${artist1} artist:${artist2}`;
     
-    const data = await response.json();
+    const response = await fetch(
+      `https://api.spotify.com/v1/search?q=${encodeURIComponent(searchQuery)}&type=track&limit=5`,
+      {
+        headers: { 'Authorization': `Bearer ${token}` }
+      }
+    );
 
+    const data = await response.json();
+    
     if (data.tracks && data.tracks.items.length > 0) {
-      const track = data.tracks.items[0];
-      return { exists: true, trackId: track.id, trackName: track.name };
+      for (const track of data.tracks.items) {
+        const artistNames = track.artists.map(a => a.name.toLowerCase());
+        const hasArtist1 = artistNames.some(name => name.includes(artist1.toLowerCase()));
+        const hasArtist2 = artistNames.some(name => name.includes(artist2.toLowerCase()));
+        
+        if (hasArtist1 && hasArtist2) {
+          return {
+            exists: true,
+            trackName: track.name,
+            trackId: track.id,
+            artists: track.artists.map(a => a.name)
+          };
+        }
+      }
     }
+    
     return { exists: false };
   } catch (error) {
-    console.error("Erreur lors de la vérification du feat:", error);
-    return { exists: false };
+    console.error('❌ Erreur Spotify API:', error);
+    return { exists: false, error: error.message };
   }
 }
 
-// Route de santé
-app.get('/', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    message: 'FeatChain Socket.IO Server',
-    rooms: rooms.size,
-    timestamp: new Date().toISOString()
-  });
-});
+// ============ HEALTH CHECK ============
 
 app.get('/health', (req, res) => {
-  res.json({ 
+  res.json({
     status: 'healthy',
     rooms: rooms.size,
     timestamp: new Date().toISOString()
   });
 });
 
-// Socket.IO
+// ============ SOCKET.IO EVENTS ============
+
 io.on('connection', (socket) => {
   console.log('✅ Client connecté:', socket.id);
 
   // Créer une room
-  socket.on('createRoom', ({ pseudo }) => {
+  socket.on('createRoom', ({ pseudo }, callback) => {
     const roomCode = generateRoomCode();
-    const player = {
-      id: socket.id,
-      pseudo: pseudo || "Joueur 1",
-      score: 0,
-      lives: 3
-    };
-
+    
     const gameState = {
-      roomCode,
-      players: [player],
-      currentArtist: "Ninho",
-      usedArtists: ["ninho"],
-      history: ["Ninho"],
+      roomCode: roomCode,  // Utiliser roomCode au lieu de code
+      players: [{
+        id: socket.id,
+        pseudo: pseudo || 'Joueur 1',
+        lives: 3,
+        isActive: true,  // Ajouter isActive pour compatibilité
+        score: 0
+      }],
+      currentArtist: 'Ninho',
+      usedArtists: ['ninho'],
+      history: 'Chaîne actuelle : Ninho',  // Format attendu par le client
       currentPlayerIndex: 0,
       gameStarted: false,
-      timeLeft: 30,
       gameOver: false
     };
 
     rooms.set(roomCode, gameState);
     socket.join(roomCode);
+    socket.data.roomCode = roomCode;
 
-    console.log(`🎮 Room créée: ${roomCode} par ${pseudo}`);
+    console.log(`🎮 Room créée: ${roomCode} by ${pseudo}`);
 
-    socket.emit('roomCreated', { roomCode, gameState });
+    callback({ success: true, roomCode });
     socket.emit('gameState', gameState);
   });
 
   // Rejoindre une room
-  socket.on('joinRoom', ({ roomCode, pseudo }) => {
+  socket.on('joinRoom', ({ roomCode, pseudo }, callback) => {
     const gameState = rooms.get(roomCode);
 
     if (!gameState) {
-      socket.emit('error', { message: 'Room introuvable' });
+      callback({ success: false, error: 'Room introuvable' });
       return;
     }
 
-    // Vérifier si le joueur était déjà dans la partie (reconnexion)
+    // Vérifier si le pseudo existe déjà (reconnexion)
     const existingPlayer = gameState.players.find(p => p.pseudo === pseudo);
 
-    if (gameState.gameStarted && !existingPlayer) {
-      socket.emit('error', { message: 'La partie a déjà commencé' });
-      return;
-    }
-
-    socket.join(roomCode);
-
     if (existingPlayer) {
-      // Reconnexion : mettre à jour l'ID du socket
+      // Reconnexion
       existingPlayer.id = socket.id;
-      console.log(`🔄 ${pseudo} s'est reconnecté à la room ${roomCode}`);
+      socket.join(roomCode);
+      socket.data.roomCode = roomCode;
       
-      // Envoyer l'état actuel au joueur reconnecté
+      console.log(`🔄 ${pseudo} reconnecté à ${roomCode}`);
+      
+      callback({ success: true, gameState });
       socket.emit('gameState', gameState);
       
-      // Si la partie a déjà commencé, envoyer gameStarted
       if (gameState.gameStarted) {
         socket.emit('gameStarted', gameState);
       }
-    } else {
-      // Nouveau joueur
-      const player = {
-        id: socket.id,
-        pseudo: pseudo || `Joueur ${gameState.players.length + 1}`,
-        score: 0,
-        lives: 3
-      };
-
-      gameState.players.push(player);
-      console.log(`👤 ${pseudo} a rejoint la room ${roomCode}`);
-      
-      io.to(roomCode).emit('gameState', gameState);
-      io.to(roomCode).emit('playerJoined', { player });
+      return;
     }
+
+    if (gameState.gameStarted) {
+      callback({ success: false, error: 'La partie a déjà commencé' });
+      return;
+    }
+
+    // Nouveau joueur
+    const player = {
+      id: socket.id,
+      pseudo: pseudo || `Joueur ${gameState.players.length + 1}`,
+      lives: 3,
+      isActive: true,
+      score: 0
+    };
+
+    gameState.players.push(player);
+    socket.join(roomCode);
+    socket.data.roomCode = roomCode;
+
+    console.log(`👤 ${pseudo} a rejoint ${roomCode}`);
+
+    callback({ success: true, gameState });
+    io.to(roomCode).emit('gameState', gameState);
+    io.to(roomCode).emit('playerJoined', { player });
   });
 
   // Démarrer la partie
-  socket.on('startGame', ({ roomCode }) => {
+  socket.on('startGame', (roomCode) => {
     const gameState = rooms.get(roomCode);
 
     if (!gameState) {
@@ -192,17 +217,16 @@ io.on('connection', (socket) => {
     }
 
     if (gameState.players.length < 2) {
-      socket.emit('error', { message: 'Il faut au moins 2 joueurs pour commencer' });
+      socket.emit('error', { message: 'Il faut au moins 2 joueurs' });
       return;
     }
 
     gameState.gameStarted = true;
     gameState.timeLeft = 30;
 
-    console.log(`🚀 Partie démarrée dans la room ${roomCode}`);
+    console.log(`🚀 Partie démarrée dans ${roomCode}`);
 
-    io.to(roomCode).emit('gameState', gameState);
-    io.to(roomCode).emit('gameStarted', gameState); // Envoyer gameState avec l'événement
+    io.to(roomCode).emit('gameStarted', gameState);
     io.to(roomCode).emit('timerStart', { timeLeft: 30 });
   });
 
@@ -210,172 +234,201 @@ io.on('connection', (socket) => {
   socket.on('validateAnswer', async ({ roomCode, guess }) => {
     const gameState = rooms.get(roomCode);
 
-    if (!gameState) {
-      socket.emit('error', { message: 'Room introuvable' });
+    if (!gameState || !gameState.gameStarted) {
+      socket.emit('error', { message: 'Partie introuvable ou non démarrée' });
       return;
     }
 
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
-
+    
     if (currentPlayer.id !== socket.id) {
-      socket.emit('error', { message: "Ce n'est pas votre tour" });
+      socket.emit('error', { message: 'Ce n\'est pas votre tour' });
       return;
     }
 
-    console.log(`🎯 Validation: ${gameState.currentArtist} → ${guess}`);
+    const guessClean = guess.trim().toLowerCase();
+    const currentArtistClean = gameState.currentArtist.toLowerCase();
 
     // Vérifier si l'artiste a déjà été utilisé
-    const guessLower = guess.toLowerCase().trim();
-    if (gameState.usedArtists.includes(guessLower)) {
-      currentPlayer.lives--;
+    if (gameState.usedArtists.includes(guessClean)) {
+      currentPlayer.lives -= 1;
       
-      io.to(roomCode).emit('answerResult', {
-        isCorrect: false,
+      io.to(roomCode).emit('validationError', {
         message: `❌ ${guess} a déjà été utilisé !`,
-        lives: currentPlayer.lives
+        livesLost: true,
+        remainingLives: currentPlayer.lives,
+        playerId: socket.id
       });
 
       if (currentPlayer.lives <= 0) {
-        gameState.gameOver = true;
-        io.to(roomCode).emit('gameState', gameState);
-        io.to(roomCode).emit('gameOver', {
-          winner: gameState.players.find(p => p.id !== currentPlayer.id),
-          loser: currentPlayer
+        gameState.players.splice(gameState.currentPlayerIndex, 1);
+        io.to(roomCode).emit('playerEliminated', {
+          playerId: socket.id,
+          playerPseudo: currentPlayer.pseudo
         });
-        return;
+
+        if (gameState.players.length === 1) {
+          gameState.gameOver = true;
+          io.to(roomCode).emit('gameEnded', { winner: gameState.players[0] });
+          return;
+        }
+
+        if (gameState.currentPlayerIndex >= gameState.players.length) {
+          gameState.currentPlayerIndex = 0;
+        }
+      } else {
+        gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
       }
 
-      // Passer au joueur suivant
-      gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
       io.to(roomCode).emit('gameState', gameState);
+      io.to(roomCode).emit('turnChanged', {
+        currentPlayerId: gameState.players[gameState.currentPlayerIndex].id,
+        currentPlayerPseudo: gameState.players[gameState.currentPlayerIndex].pseudo
+      });
       io.to(roomCode).emit('timerStart', { timeLeft: 30 });
       return;
     }
 
-    // Vérifier le feat via Spotify
-    const result = await checkFeatExists(gameState.currentArtist, guess);
+    // Vérifier le feat avec Spotify
+    const featResult = await checkFeatExists(currentArtistClean, guessClean);
 
-    if (result.exists) {
+    if (featResult.exists) {
       // Bonne réponse
-      currentPlayer.score++;
       gameState.currentArtist = guess;
-      gameState.usedArtists.push(guessLower);
-      gameState.history.push(guess);
-
-      io.to(roomCode).emit('answerResult', {
-        isCorrect: true,
-        message: `✅ Correct ! "${result.trackName}"`,
-        trackId: result.trackId,
-        trackName: result.trackName,
-        newArtist: guess,
-        score: currentPlayer.score
-      });
+      gameState.usedArtists.push(guessClean);
+      gameState.history += ` → ${guess}`;
+      currentPlayer.score += 1;
 
       // Passer au joueur suivant
       gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
-      gameState.timeLeft = 30;
-      
+
+      io.to(roomCode).emit('artistValidated', {
+        newArtist: guess,
+        trackName: featResult.trackName,
+        trackId: featResult.trackId,
+        history: gameState.history,
+        nextPlayerId: gameState.players[gameState.currentPlayerIndex].id
+      });
+
       io.to(roomCode).emit('gameState', gameState);
+      io.to(roomCode).emit('turnChanged', {
+        currentPlayerId: gameState.players[gameState.currentPlayerIndex].id,
+        currentPlayerPseudo: gameState.players[gameState.currentPlayerIndex].pseudo
+      });
       io.to(roomCode).emit('timerStart', { timeLeft: 30 });
 
     } else {
       // Mauvaise réponse
-      currentPlayer.lives--;
-
-      io.to(roomCode).emit('answerResult', {
-        isCorrect: false,
-        message: `❌ Aucun feat entre ${gameState.currentArtist} et ${guess}`,
-        lives: currentPlayer.lives
+      currentPlayer.lives -= 1;
+      
+      io.to(roomCode).emit('validationError', {
+        message: `❌ Aucun feat trouvé entre ${gameState.currentArtist} et ${guess}`,
+        livesLost: true,
+        remainingLives: currentPlayer.lives,
+        playerId: socket.id
       });
 
       if (currentPlayer.lives <= 0) {
-        gameState.gameOver = true;
-        io.to(roomCode).emit('gameState', gameState);
-        io.to(roomCode).emit('gameOver', {
-          winner: gameState.players.find(p => p.id !== currentPlayer.id),
-          loser: currentPlayer
+        gameState.players.splice(gameState.currentPlayerIndex, 1);
+        io.to(roomCode).emit('playerEliminated', {
+          playerId: socket.id,
+          playerPseudo: currentPlayer.pseudo
         });
-        return;
+
+        if (gameState.players.length === 1) {
+          gameState.gameOver = true;
+          io.to(roomCode).emit('gameEnded', { winner: gameState.players[0] });
+          return;
+        }
+
+        if (gameState.currentPlayerIndex >= gameState.players.length) {
+          gameState.currentPlayerIndex = 0;
+        }
+      } else {
+        gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
       }
 
-      // Passer au joueur suivant
-      gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
       io.to(roomCode).emit('gameState', gameState);
+      io.to(roomCode).emit('turnChanged', {
+        currentPlayerId: gameState.players[gameState.currentPlayerIndex].id,
+        currentPlayerPseudo: gameState.players[gameState.currentPlayerIndex].pseudo
+      });
       io.to(roomCode).emit('timerStart', { timeLeft: 30 });
     }
   });
 
-  // Timer expiré
+  // Temps écoulé
   socket.on('timeOut', ({ roomCode }) => {
     const gameState = rooms.get(roomCode);
 
-    if (!gameState) return;
+    if (!gameState || !gameState.gameStarted) return;
 
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
     
     if (currentPlayer.id !== socket.id) return;
 
-    currentPlayer.lives--;
+    currentPlayer.lives -= 1;
 
-    io.to(roomCode).emit('answerResult', {
-      isCorrect: false,
-      message: '⏰ Temps écoulé !',
-      lives: currentPlayer.lives
+    io.to(roomCode).emit('validationError', {
+      message: '⏱️ Temps écoulé !',
+      livesLost: true,
+      remainingLives: currentPlayer.lives,
+      playerId: socket.id
     });
 
     if (currentPlayer.lives <= 0) {
-      gameState.gameOver = true;
-      io.to(roomCode).emit('gameState', gameState);
-      io.to(roomCode).emit('gameOver', {
-        winner: gameState.players.find(p => p.id !== currentPlayer.id),
-        loser: currentPlayer
+      gameState.players.splice(gameState.currentPlayerIndex, 1);
+      io.to(roomCode).emit('playerEliminated', {
+        playerId: socket.id,
+        playerPseudo: currentPlayer.pseudo
       });
-      return;
+
+      if (gameState.players.length === 1) {
+        gameState.gameOver = true;
+        io.to(roomCode).emit('gameEnded', { winner: gameState.players[0] });
+        return;
+      }
+
+      if (gameState.currentPlayerIndex >= gameState.players.length) {
+        gameState.currentPlayerIndex = 0;
+      }
+    } else {
+      gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
     }
 
-    // Passer au joueur suivant
-    gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
     io.to(roomCode).emit('gameState', gameState);
+    io.to(roomCode).emit('turnChanged', {
+      currentPlayerId: gameState.players[gameState.currentPlayerIndex].id,
+      currentPlayerPseudo: gameState.players[gameState.currentPlayerIndex].pseudo
+    });
     io.to(roomCode).emit('timerStart', { timeLeft: 30 });
   });
 
   // Déconnexion
   socket.on('disconnect', () => {
     console.log('❌ Client déconnecté:', socket.id);
-
-    // Trouver et nettoyer les rooms
-    for (const [roomCode, gameState] of rooms.entries()) {
-      const playerIndex = gameState.players.findIndex(p => p.id === socket.id);
-      
-      if (playerIndex !== -1) {
-        const player = gameState.players[playerIndex];
-        gameState.players.splice(playerIndex, 1);
-
-        console.log(`👋 ${player.pseudo} a quitté la room ${roomCode}`);
-
+    
+    const roomCode = socket.data.roomCode;
+    if (roomCode) {
+      const gameState = rooms.get(roomCode);
+      if (gameState && !gameState.gameStarted) {
+        // Retirer le joueur si la partie n'a pas commencé
+        gameState.players = gameState.players.filter(p => p.id !== socket.id);
+        
         if (gameState.players.length === 0) {
           rooms.delete(roomCode);
           console.log(`🗑️ Room ${roomCode} supprimée (vide)`);
         } else {
-          io.to(roomCode).emit('playerLeft', { player });
           io.to(roomCode).emit('gameState', gameState);
-
-          // Si c'était le tour du joueur qui part
-          if (gameState.currentPlayerIndex >= gameState.players.length) {
-            gameState.currentPlayerIndex = 0;
-            io.to(roomCode).emit('gameState', gameState);
-            io.to(roomCode).emit('timerStart', { timeLeft: 30 });
-          }
+          io.to(roomCode).emit('playerLeft', { playerId: socket.id });
         }
-        break;
       }
     }
   });
 });
 
-const PORT = process.env.PORT || 3001;
-
-httpServer.listen(PORT, '0.0.0.0', () => {
+// Démarrer le serveur
+httpServer.listen(PORT, () => {
   console.log(`🚀 Serveur Socket.IO démarré sur le port ${PORT}`);
-  console.log(`📡 CORS autorisé pour: ${process.env.CLIENT_URL || "http://localhost:3000"}`);
+  console.log(`📡 CORS autorisé pour: ${allowedOrigins[0]}`);
 });

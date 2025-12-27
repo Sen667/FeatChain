@@ -20,6 +20,7 @@ export interface GameState {
 }
 
 export interface ServerToClientEvents {
+  gameState: (gameState: GameState) => void;
   roomCreated: (data: { roomCode: string }) => void;
   playerJoined: (data: { player: Player; players: Player[] }) => void;
   playerLeft: (data: { playerId: string; players: Player[] }) => void;

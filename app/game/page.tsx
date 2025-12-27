@@ -85,10 +85,12 @@ function GamePageContent() {
     console.log('🔌 Connexion au serveur Socket.IO:', socketUrl);
     
     socket = io(socketUrl, {
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionDelay: 1000,
-      reconnectionAttempts: 5
+      reconnectionAttempts: 5,
+      timeout: 10000,
+      forceNew: true
     });
 
     socket.on('connect', () => {
@@ -136,23 +138,23 @@ function GamePageContent() {
     });
 
     // Événements Socket.IO
+    socket.on('gameState', (newGameState) => {
+      console.log('📦 gameState reçu:', newGameState);
+      setGameState(newGameState);
+    });
+
     socket.on('roomCreated', (data) => {
       setStatusMessage(`Room créée ! Partagez ce code : ${data.roomCode}`);
     });
 
     socket.on('playerJoined', (data) => {
-      setGameState(prevState => {
-        if (!prevState) return prevState;
-        return { ...prevState, players: data.players };
-      });
+      // Le gameState est déjà mis à jour par l'événement 'gameState', on affiche juste le message
       setStatusMessage(`${data.player.pseudo} a rejoint la partie !`);
     });
 
     socket.on('playerLeft', (data) => {
-      setGameState(prevState => {
-        if (!prevState) return prevState;
-        return { ...prevState, players: data.players };
-      });
+      // Le gameState sera mis à jour par l'événement 'gameState', on affiche juste le message
+      setStatusMessage(`Un joueur a quitté la partie`);
     });
 
     socket.on('gameStarted', (newGameState) => {
@@ -511,17 +513,17 @@ function GamePageContent() {
   }
 
   // Salle d'attente multijoueur
-  if (isMultiplayer && waitingForPlayers) {
-    const isCreator = gameState?.players[0]?.id === myPlayerId;
+  if (isMultiplayer && waitingForPlayers && gameState && gameState.players && gameState.players.length > 0) {
+    const isCreator = gameState.players[0]?.id === myPlayerId;
     
     // Debug: afficher l'état actuel
     console.log('🐛 État salle attente:', {
       waitingForPlayers,
-      gameStarted: gameState?.gameStarted,
-      playersCount: gameState?.players.length,
+      gameStarted: gameState.gameStarted,
+      playersCount: gameState.players.length,
       isCreator,
       myPlayerId,
-      creatorId: gameState?.players[0]?.id
+      creatorId: gameState.players[0]?.id
     });
     
     return (
