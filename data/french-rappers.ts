@@ -5,7 +5,7 @@ export const frenchRappers = [
   "Niska", "Leto", "Gradur", "Koba LaD", "Kaaris", "Lacrim", "Maes",
   "Freeze Corleone", "Naps", "Rim'K", "Heuss L'Enfoiré", "Soolking",
   "Dadju", "Gims", "Aya Nakamura", "Niska", "Vald", "Lomepal", "Kekra",
- "Soso Maness", "Hornet La Frappe", "Dinos", "Lefa",
+    "Soso Maness", "Hornet La Frappe", "Dinos", "Lefa",
   "Sofiane", "Stromae", "Gambi", "Tiakola", "Laylow", "Zola", "Gazo",
   "Hamza", "SDM", "Zuukou Mayzie", "Ashe 22", "PLK", "Moha La Squale",
   "Kalash Criminel", "Alpha Wann", "Dosseh", "Kalash", "Werenoi",
