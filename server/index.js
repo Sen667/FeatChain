@@ -113,7 +113,7 @@ async function checkFeatExists(artist1, artist2) {
       }
     }
     
-    console.log(`❌ Aucun feat trouvé`);
+    console.log(`❌ Aucun feat trouvé entre ${artist1} et ${artist2}`);
     return { exists: false };
   } catch (error) {
     console.error('❌ Erreur Spotify API:', error);
